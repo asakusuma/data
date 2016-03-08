@@ -5,7 +5,7 @@ import EmptyObject from "ember-data/-private/system/empty-object";
 
 var get = Ember.get;
 
-function createRelationshipFor(record, relationshipMeta, store) {
+let createRelationshipFor = function(record, relationshipMeta, store) {
   var inverseKey;
   var inverse = record.type.inverseFor(relationshipMeta.key, store);
 
@@ -19,6 +19,8 @@ function createRelationshipFor(record, relationshipMeta, store) {
     return new BelongsToRelationship(store, record, inverseKey, relationshipMeta);
   }
 }
+
+createRelationshipFor = typeof window === 'object' && typeof window.perfWrap === 'function' ? window.perfWrap(createRelationshipFor, 'createRelationshipFor') : createRelationshipFor;
 
 export default function Relationships(record) {
   this.record = record;

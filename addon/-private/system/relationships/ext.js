@@ -37,6 +37,27 @@ var relationshipsDescriptor = Ember.computed(function() {
   return map;
 }).readOnly();
 
+var relationshipComputed = function() {
+  if (Ember.testing === true && relationshipsByNameDescriptor._cacheable === true) {
+    relationshipsByNameDescriptor._cacheable = false;
+  }
+
+  var map = Map.create();
+
+  this.eachComputedProperty((name, meta) => {
+    if (meta.isRelationship) {
+      meta.key = name;
+      var relationship = relationshipFromMeta(meta);
+      relationship.type = typeForRelationshipMeta(meta);
+      map.set(name, relationship);
+    }
+  });
+
+  return map;
+};
+
+relationshipComputed = typeof window === 'object' && typeof window.perfWrap === 'function' ? window.perfWrap(relationshipComputed, 'relComputed') : relationshipComputed;
+
 var relatedTypesDescriptor = Ember.computed(function() {
   if (Ember.testing === true && relatedTypesDescriptor._cacheable === true) {
     relatedTypesDescriptor._cacheable = false;
@@ -65,24 +86,7 @@ var relatedTypesDescriptor = Ember.computed(function() {
   return types;
 }).readOnly();
 
-var relationshipsByNameDescriptor = Ember.computed(function() {
-  if (Ember.testing === true && relationshipsByNameDescriptor._cacheable === true) {
-    relationshipsByNameDescriptor._cacheable = false;
-  }
-
-  var map = Map.create();
-
-  this.eachComputedProperty((name, meta) => {
-    if (meta.isRelationship) {
-      meta.key = name;
-      var relationship = relationshipFromMeta(meta);
-      relationship.type = typeForRelationshipMeta(meta);
-      map.set(name, relationship);
-    }
-  });
-
-  return map;
-}).readOnly();
+var relationshipsByNameDescriptor = Ember.computed(relationshipComputed).readOnly();
 
 /**
   @module ember-data
@@ -231,6 +235,38 @@ export const RelationshipsClassMethodsMixin = Ember.Mixin.create({
   //Calculate the inverse, ignoring the cache
   _findInverseFor(name, store) {
 
+    let findPossibleInverses = function(type, inverseType, relationshipsSoFar) {
+      var possibleRelationships = relationshipsSoFar || [];
+
+      var relationshipMap = get(inverseType, 'relationships');
+      if (!relationshipMap) { return possibleRelationships; }
+
+      var relationships = relationshipMap.get(type.modelName);
+
+      relationships = relationships.filter((relationship) => {
+        var optionsForRelationship = inverseType.metaForProperty(relationship.name).options;
+
+        if (!optionsForRelationship.inverse) {
+          return true;
+        }
+
+        return name === optionsForRelationship.inverse;
+      });
+
+      if (relationships) {
+        possibleRelationships.push.apply(possibleRelationships, relationships);
+      }
+
+      //Recurse to support polymorphism
+      if (type.superclass) {
+        findPossibleInverses(type.superclass, inverseType, possibleRelationships);
+      }
+
+      return possibleRelationships;
+    };
+
+    findPossibleInverses = typeof window === 'object' && typeof window.perfWrap === 'function' ? window.perfWrap(findPossibleInverses, 'findPossibleInverses') : findPossibleInverses;
+
     var inverseType = this.typeForRelationship(name, store);
     if (!inverseType) {
       return null;
@@ -283,36 +319,6 @@ export const RelationshipsClassMethodsMixin = Ember.Mixin.create({
 
       inverseName = possibleRelationships[0].name;
       inverseKind = possibleRelationships[0].kind;
-    }
-
-    function findPossibleInverses(type, inverseType, relationshipsSoFar) {
-      var possibleRelationships = relationshipsSoFar || [];
-
-      var relationshipMap = get(inverseType, 'relationships');
-      if (!relationshipMap) { return possibleRelationships; }
-
-      var relationships = relationshipMap.get(type.modelName);
-
-      relationships = relationships.filter((relationship) => {
-        var optionsForRelationship = inverseType.metaForProperty(relationship.name).options;
-
-        if (!optionsForRelationship.inverse) {
-          return true;
-        }
-
-        return name === optionsForRelationship.inverse;
-      });
-
-      if (relationships) {
-        possibleRelationships.push.apply(possibleRelationships, relationships);
-      }
-
-      //Recurse to support polymorphism
-      if (type.superclass) {
-        findPossibleInverses(type.superclass, inverseType, possibleRelationships);
-      }
-
-      return possibleRelationships;
     }
 
     return {

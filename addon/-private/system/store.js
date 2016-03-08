@@ -77,6 +77,8 @@ var Promise = Ember.RSVP.Promise;
 var copy = Ember.copy;
 var Store;
 
+var perfWrap = typeof window === 'object' && typeof window.perfWrap === 'function' ? window.perfWrap : function(result) {return result};
+
 const { Service } = Ember;
 
 // Implementors Note:
@@ -1461,7 +1463,7 @@ Store = Service.extend({
     @param {String} modelName
     @return {DS.Model}
   */
-  modelFor(modelName) {
+  modelFor: perfWrap(function(modelName) {
     assert('Passing classes to store methods has been removed. Please pass a dasherized string instead of '+ Ember.inspect(modelName), typeof modelName === 'string');
 
     var factory = this.modelFactoryFor(modelName);
@@ -1475,7 +1477,7 @@ Store = Service.extend({
     factory.modelName = factory.modelName || normalizeModelName(modelName);
 
     return factory;
-  },
+  }, 'modelFor'),
 
   modelFactoryFor(modelName) {
     assert('Passing classes to store methods has been removed. Please pass a dasherized string instead of '+ Ember.inspect(modelName), typeof modelName === 'string');
@@ -1671,6 +1673,7 @@ Store = Service.extend({
 
   _pushInternalModel(data) {
     var modelName = data.type;
+    /*
     assert(`You must include an 'id' for ${modelName} in an object passed to 'push'`, data.id != null && data.id !== '');
     assert(`You tried to push data with a type '${modelName}' but no model could be found with that name.`, this._hasModelFor(modelName));
 
@@ -1689,7 +1692,7 @@ Store = Service.extend({
         { id: 'ds.store.unknown-keys-in-payload' }
       );
     }
-
+    */
     // Actually load the record into the store.
     var internalModel = this._load(data);
 

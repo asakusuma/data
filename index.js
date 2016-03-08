@@ -103,6 +103,10 @@ module.exports = {
     return this._super.treeForAddon.call(this, addonTree);
   },
 
+  isDevelopingAddon: function() {
+    return true;
+  },
+
   included: function(app) {
     this._super.included.apply(this, arguments);
 

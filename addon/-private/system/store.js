@@ -1520,12 +1520,30 @@ Store = Service.extend({
   },
 
   modelFactoryFor(modelName) {
-    assert('Passing classes to store methods has been removed. Please pass a dasherized string instead of '+ Ember.inspect(modelName), typeof modelName === 'string');
-    var normalizedKey = normalizeModelName(modelName);
+    if (!this.isBrowser) {
+      assert('Passing classes to store methods has been removed. Please pass a dasherized string instead of '+ Ember.inspect(modelName), typeof modelName === 'string');
+      var normalizedKey = normalizeModelName(modelName);
 
-    var owner = getOwner(this);
+      var owner = getOwner(this);
 
-    return owner._lookupFactory('model:' + normalizedKey);
+      return owner._lookupFactory('model:' + normalizedKey);
+    } else {
+      let owner = getOwner(this);
+
+      let containerName = 'model:' + modelName;
+
+      let registry = owner.__container__.registry;
+      let model = registry._resolveCache[containerName] || registry.fallback._resolveCache[containerName];
+
+      if (!model) {
+        let resolver = owner.__container__.registry.fallback.resolver;
+        let meta = resolver.parseName(containerName);
+        let moduleName = resolver.findModuleName(meta);
+        registry._resolveCache[containerName] = registry.fallback._resolveCache = model = require(moduleName, null, null, true /* force sync */)['default'];
+      }
+
+      return model;
+    }
   },
 
   /**
